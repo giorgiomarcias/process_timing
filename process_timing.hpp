@@ -9,6 +9,28 @@
 
 namespace timings {
 
+    // "overloading" std ratio comparisons: R1 op R2 <==> R1::num/R1::den op R2::num/R2::den <==> R1::num*R2::den op R2::num*R1::den
+
+    template <class R1, class R2>
+    using ratio_equal = std::ratio_equal<R1, R2>;
+
+    template <class R1, class R2>
+    using ratio_not_equal = std::ratio_not_equal<R1, R2>;
+
+    template <class R1, class R2>
+    struct ratio_less : std::integral_constant<bool, R1::num * R2::den < R2::num * R1::den> { };
+
+    template <class R1, class R2>
+    struct ratio_less_equal : std::integral_constant<bool, !ratio_less<R2, R1>::value> { };
+
+    template <class R1, class R2>
+    struct ratio_greater : std::integral_constant<bool, ratio_less<R2, R1>::value> { };
+
+    template <class R1, class R2>
+    struct ratio_greater_equal : std::integral_constant<bool, !ratio_less<R1, R2>::value> { };
+
+
+
     /**
      *    @brief days represents the time in number of days.
      */
@@ -70,31 +92,31 @@ namespace timings {
             bool activate = false;
             if (timeElements.d.count() > 0)
                 activate = true;
-            if (std::ratio_greater_equal<Period, days::period>::value && activate)
+            if (ratio_less_equal<Period, days::period>::value && activate)
                 stream << timeElements.d.count() << "d.";
             if (timeElements.h.count() > 0)
                 activate = true;
-            if (std::ratio_greater_equal<Period, std::chrono::hours::period>::value && activate)
+            if (ratio_less_equal<Period, std::chrono::hours::period>::value && activate)
                 stream << std::setw(2) << std::setfill('0') << timeElements.h.count() << "h.";
             if (timeElements.m.count() > 0)
                 activate = true;
-            if (std::ratio_greater_equal<Period, std::chrono::minutes::period>::value && activate)
+            if (ratio_less_equal<Period, std::chrono::minutes::period>::value && activate)
                 stream << std::setw(2) << std::setfill('0') << timeElements.m.count() << "m.";
             if (timeElements.s.count() > 0)
                 activate = true;
-            if (std::ratio_greater_equal<Period, std::chrono::seconds::period>::value && activate)
+            if (ratio_less_equal<Period, std::chrono::seconds::period>::value && activate)
                 stream << std::setw(2) << std::setfill('0') << timeElements.s.count() << "s.";
             if (timeElements.ms.count() > 0)
                 activate = true;
-            if (std::ratio_greater_equal<Period, std::chrono::milliseconds::period>::value && activate)
+            if (ratio_less_equal<Period, std::chrono::milliseconds::period>::value && activate)
                 stream << std::setw(3) << std::setfill('0') << timeElements.ms.count() << "ms.";
             if (timeElements.us.count() > 0)
                 activate = true;
-            if (std::ratio_greater_equal<Period, std::chrono::microseconds::period>::value && activate)
+            if (ratio_less_equal<Period, std::chrono::microseconds::period>::value && activate)
                 stream << std::setw(3) << std::setfill('0') << timeElements.us.count() << "us.";
             if (timeElements.ns.count() > 0)
                 activate = true;
-            if (std::ratio_greater_equal<Period, std::chrono::nanoseconds::period>::value && activate)
+            if (ratio_less_equal<Period, std::chrono::nanoseconds::period>::value && activate)
                 stream << std::setw(3) << std::setfill('0') << timeElements.ns.count() << "ns.";
             timeStr = stream.str();
         }
