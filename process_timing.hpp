@@ -5,7 +5,7 @@
 #include <string>
 #include <sstream>
 #include <iomanip>
-#include <mutex>
+#include <atomic>
 
 namespace timings {
 
@@ -56,7 +56,10 @@ namespace timings {
 
     /// Main class, providing methods for taking timings.
     class ProcessTiming {
+		using Clock = std::chrono::steady_clock;
     public:
+		using TimePoint = Clock::time_point;
+
         /**
          *    @brief SplitTimeElements extracts elements from time.
          *    @param duration The time to split.
@@ -149,9 +152,8 @@ namespace timings {
          */
         inline void start()
         {
-            std::lock_guard<std::recursive_mutex> lock(_mutex);
-            _startTime = std::chrono::steady_clock::now();
-            _endTime = _startTime;
+			_startTimeCount = Clock::now().time_since_epoch().count();
+			_endTimeCount = _startTimeCount.load();
             _ongoing = true;
         }
 
@@ -160,8 +162,7 @@ namespace timings {
          */
         inline void stop()
         {
-            std::lock_guard<std::recursive_mutex> lock(_mutex);
-            _endTime = std::chrono::steady_clock::now();
+			_endTimeCount = Clock::now().time_since_epoch().count();
             _ongoing = false;
         }
 
@@ -170,8 +171,9 @@ namespace timings {
          */
         inline std::chrono::steady_clock::time_point getStartTime() const
         {
-            std::lock_guard<std::recursive_mutex> lock(_mutex);
-            return _startTime;
+			TimePoint startTime;
+			startTime += TimePointDuration(_startTimeCount);
+            return startTime;
         }
 
         /**
@@ -179,10 +181,11 @@ namespace timings {
          */
         inline std::chrono::steady_clock::time_point getEndTime() const
         {
-            std::lock_guard<std::recursive_mutex> lock(_mutex);
-            std::chrono::steady_clock::time_point endTime = _endTime;
+            TimePoint endTime;
             if (_ongoing)
-                endTime = std::chrono::steady_clock::now();
+                endTime = Clock::now();
+			else
+				endTime += TimePointDuration(_endTimeCount);
             return endTime;
         }
 
@@ -191,7 +194,6 @@ namespace timings {
          */
         inline bool isRunning() const
         {
-            std::lock_guard<std::recursive_mutex> lock(_mutex);
             return _ongoing;
         }
 
@@ -201,12 +203,11 @@ namespace timings {
         template < typename Rep = std::chrono::nanoseconds::rep, typename Period = std::chrono::nanoseconds::period >
         inline std::chrono::duration<Rep,Period> elapsed() const
         {
-            std::lock_guard<std::recursive_mutex> lock(_mutex);
             std::chrono::duration<Rep,Period> diff;
             if (_ongoing)
-                diff = std::chrono::duration_cast<std::chrono::duration<Rep,Period>>(std::chrono::steady_clock::now() - _startTime);
+                diff = std::chrono::duration_cast<std::chrono::duration<Rep,Period>>(Clock::now() - getStartTime());
             else
-                diff = std::chrono::duration_cast<std::chrono::duration<Rep,Period>>(_endTime - _startTime);
+                diff = std::chrono::duration_cast<std::chrono::duration<Rep,Period>>(getEndTime() - getStartTime());
             return diff;
         }
 
@@ -216,7 +217,6 @@ namespace timings {
         template < typename Rep = std::chrono::nanoseconds::rep, typename Period = std::chrono::nanoseconds::period >
         inline std::string to_string() const
         {
-            std::lock_guard<std::recursive_mutex> lock(_mutex);
             std::chrono::duration<Rep,Period> duration = elapsed<Rep,Period>();
             std::string timeStr;
             TimeToString<Rep,Period>(duration, timeStr);
@@ -224,10 +224,12 @@ namespace timings {
         }
 
     private:
-        mutable std::recursive_mutex            _mutex;         ///< Ensures the mutual exclusion (in multi-thread processes).
-        bool                                    _ongoing;       ///< Tells if the counter is counting.
-        std::chrono::steady_clock::time_point   _startTime;     ///< The initial time point.
-        std::chrono::steady_clock::time_point   _endTime;       ///< The final time point.
+		using TimePointDuration = TimePoint::duration;
+		using TimePointDurationCount = TimePointDuration::rep;
+
+		std::atomic_bool	                        _ongoing;       ///< Tells if the counter is counting.
+		std::atomic<TimePointDurationCount>     _startTimeCount;///< The initial time point ticks from epoch.
+		std::atomic<TimePointDurationCount>     _endTimeCount;  ///< The final time point ticks from epoch.
     };
 
 }
