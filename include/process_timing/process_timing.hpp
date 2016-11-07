@@ -227,7 +227,7 @@ namespace timings {
 		using TimePointDuration = TimePoint::duration;
 		using TimePointDurationCount = TimePointDuration::rep;
 
-		std::atomic_bool	                        _ongoing;       ///< Tells if the counter is counting.
+		std::atomic_bool	                    _ongoing;       ///< Tells if the counter is counting.
 		std::atomic<TimePointDurationCount>     _startTimeCount;///< The initial time point ticks from epoch.
 		std::atomic<TimePointDurationCount>     _endTimeCount;  ///< The final time point ticks from epoch.
     };
